@@ -6,7 +6,11 @@ $subnetName = "default"
 $vnetAddressPrefix = "10.0.0.0/16"
 $subnetAddressPrefix = "10.0.0.0/24"
 $sshKeyName = "linuxboxsshkey"
-$sshKeyPublicKey = Get-Content "~/.ssh/id_rsa.pub" 
+$sshKeyPath = Join-Path $HOME ".ssh/id_ed25519.pub"
+$sshKeyPublicKey = $null
+if (Test-Path $sshKeyPath) {
+    $sshKeyPublicKey = (Get-Content -Raw $sshKeyPath).Trim()
+}
 $vmName = "matebox"
 $vmImage = "Ubuntu2204"
 $vmSize = "Standard_B1s"
@@ -33,14 +37,21 @@ New-AzSshKey -Name $sshKeyName -ResourceGroupName $resourceGroupName -PublicKey 
 # and set same zone you would set on the VM, but this is not required in this task. 
 # New-AzPublicIpAddress -Name $publicIpAddressName -ResourceGroupName $resourceGroupName -Location $location -Sku Basic -AllocationMethod Dynamic -DomainNameLabel "random32987"
 
-New-AzVm `
--ResourceGroupName $resourceGroupName `
--Name $vmName `
--Location $location `
--image $vmImage `
--size $vmSize `
--SubnetName $subnetName `
--VirtualNetworkName $virtualNetworkName `
--SecurityGroupName $networkSecurityGroupName `
--SshKeyName $sshKeyName 
-# -PublicIpAddressName $publicIpAddressName
+$zones = @(1, 2)
+$vmNames = @("matebox1", "matebox2")
+
+for ($i = 0; $i -lt $zones.Length; $i++) {
+    Write-Host "Creating VM $($vmNames[$i]) in Zone $($zones[$i]) ..."
+
+    New-AzVm `
+        -ResourceGroupName $resourceGroupName `
+        -Name $vmNames[$i] `
+        -Location $location `
+        -Zone $zones[$i] `
+        -Image $vmImage `
+        -Size $vmSize `
+        -SubnetName $subnetName `
+        -VirtualNetworkName $virtualNetworkName `
+        -SecurityGroupName $networkSecurityGroupName `
+        -SshKeyName $sshKeyName
+}
